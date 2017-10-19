@@ -152,61 +152,58 @@ class Conf:
             else:
                 raise ConfException('Unknown option %s.' % k)
 
-    def print_conf(self):
-        print('Core properties:')
-        print('  Source dir', self.build.environment.source_dir)
-        print('  Build dir ', self.build.environment.build_dir)
-        print('')
-        print('Core options:')
+    def get_core_options(self):
         carr = []
         for key in ['buildtype', 'warning_level', 'werror', 'strip', 'unity', 'default_library']:
             carr.append({'name': key,
                          'descr': coredata.get_builtin_option_description(key),
                          'value': self.coredata.get_builtin_option(key),
                          'choices': coredata.get_builtin_option_choices(key)})
-        self.print_aligned(carr)
-        print('')
+        return carr
+
+    def get_backend_options(self):
+        bearr = []
         bekeys = sorted(self.coredata.backend_options.keys())
         if not bekeys:
-            print('  No backend options\n')
-        else:
-            bearr = []
-            for k in bekeys:
-                o = self.coredata.backend_options[k]
-                bearr.append({'name': k, 'descr': o.description, 'value': o.value, 'choices': ''})
-            self.print_aligned(bearr)
-        print('')
-        print('Base options:')
+            return bearr
+        for k in bekeys:
+            o = self.coredata.backend_options[k]
+            bearr.append({'name': k, 'descr': o.description, 'value': o.value, 'choices': ''})
+        return bearr
+
+    def get_base_options(self):
+        obarr = []
         okeys = sorted(self.coredata.base_options.keys())
         if not okeys:
-            print('  No base options\n')
-        else:
-            coarr = []
-            for k in okeys:
-                o = self.coredata.base_options[k]
-                coarr.append({'name': k, 'descr': o.description, 'value': o.value, 'choices': ''})
-            self.print_aligned(coarr)
-        print('')
-        print('Compiler arguments:')
+            return coarr
+        for k in okeys:
+            o = self.coredata.base_options[k]
+            obarr.append({'name': k, 'descr': o.description, 'value': o.value, 'choices': ''})
+        return obarr
+
+    def get_compiler_args(self):
+        cargs = []
         for (lang, args) in self.coredata.external_args.items():
-            print('  ' + lang + '_args', str(args))
-        print('')
-        print('Linker args:')
+            cargs.append({'name': lang + '_args', 'value': args})
+        return cargs
+
+    def get_linker_args(self):
+        largs = []
         for (lang, args) in self.coredata.external_link_args.items():
-            print('  ' + lang + '_link_args', str(args))
-        print('')
-        print('Compiler options:')
+            largs.append({'name': lang + '_link_args', 'value': args})
+        return largs
+
+    def get_compiler_options(self):
+        coarr = []
         okeys = sorted(self.coredata.compiler_options.keys())
         if not okeys:
-            print('  No compiler options\n')
-        else:
-            coarr = []
-            for k in okeys:
-                o = self.coredata.compiler_options[k]
-                coarr.append({'name': k, 'descr': o.description, 'value': o.value, 'choices': ''})
-            self.print_aligned(coarr)
-        print('')
-        print('Directories:')
+            return coarr
+        for k in okeys:
+            o = self.coredata.compiler_options[k]
+            coarr.append({'name': k, 'descr': o.description, 'value': o.value, 'choices': ''})
+        return coarr
+
+    def get_directories_options(self):
         parr = []
         for key in ['prefix',
                     'libdir',
@@ -226,37 +223,88 @@ class Conf:
                          'descr': coredata.get_builtin_option_description(key),
                          'value': self.coredata.get_builtin_option(key),
                          'choices': coredata.get_builtin_option_choices(key)})
-        self.print_aligned(parr)
-        print('')
-        print('Project options:')
-        if not self.coredata.user_options:
-            print('  This project does not have any options')
-        else:
-            options = self.coredata.user_options
-            keys = list(options.keys())
-            keys.sort()
-            optarr = []
-            for key in keys:
-                opt = options[key]
-                if (opt.choices is None) or (not opt.choices):
-                    # Zero length list or string
-                    choices = ''
-                else:
-                    # A non zero length list or string, convert to string
-                    choices = str(opt.choices)
-                optarr.append({'name': key,
-                               'descr': opt.description,
-                               'value': opt.value,
-                               'choices': choices})
-            self.print_aligned(optarr)
-        print('')
-        print('Testing options:')
+        return parr
+
+    def get_project_options(self):
+        options = self.coredata.user_options
+        optarr = []
+        if not options:
+            return optarr
+        keys = list(options.keys())
+        keys.sort()
+        for key in keys:
+            opt = options[key]
+            if (opt.choices is None) or (not opt.choices):
+                # Zero length list or string
+                choices = ''
+            else:
+                # A non zero length list or string, convert to string
+                choices = str(opt.choices)
+            optarr.append({'name': key,
+                           'descr': opt.description,
+                           'value': opt.value,
+                           'choices': choices})
+        return optarr
+
+    def get_testing_options(self):
         tarr = []
         for key in ['stdsplit', 'errorlogs']:
             tarr.append({'name': key,
                          'descr': coredata.get_builtin_option_description(key),
                          'value': self.coredata.get_builtin_option(key),
                          'choices': coredata.get_builtin_option_choices(key)})
+        return tarr
+
+    def print_conf(self):
+        print('Core properties:')
+        print('  Source dir', self.build.environment.source_dir)
+        print('  Build dir ', self.build.environment.build_dir)
+        print('')
+        print('Core options:')
+        carr = self.get_core_options()
+        self.print_aligned(carr)
+        print('')
+        bearr = self.get_backend_options()
+        if not bearr:
+            print('  No backend options\n')
+        else:
+            self.print_aligned(bearr)
+        print('')
+        print('Base options:')
+        obarr = self.get_base_options()
+        if not obarr:
+            print('  No base options\n')
+        else:
+            self.print_aligned(obarr)
+        print('')
+        print('Compiler arguments:')
+        for lang in self.get_compiler_args():
+            print('  ' + lang['name'], str(lang['value']))
+        print('')
+        print('Linker args:')
+        for lang in self.get_linker_args():
+            print('  ' + lang['name'], str(lang['value']))
+        print('')
+        print('Compiler options:')
+        coarr = self.get_compiler_options()
+        if not coarr:
+            print('  No compiler options\n')
+        else:
+            self.print_aligned(coarr)
+        print('')
+        print('Directories:')
+        parr = self.get_directories_options()
+        self.print_aligned(parr)
+        print('')
+        print('Project options:')
+        optarr = self.get_project_options()
+        if not optarr:
+            print('  This project does not have any options')
+        else:
+            self.print_aligned(optarr)
+        print('')
+        print('Testing options:')
+        tarr = self.get_testing_options()
         self.print_aligned(tarr)
 
 def run(args):
