@@ -24,6 +24,8 @@ parser.add_argument('-D', action='append', default=[], dest='sets',
 parser.add_argument('directory', nargs='*')
 parser.add_argument('--clearcache', action='store_true', default=False,
                     help='Clear cached state (e.g. found dependencies)')
+parser.add_argument('--dump', action='store', nargs='?', default=False,
+                    help='Dump current configuration (optional: filename to write it in)')
 
 class ConfException(mesonlib.MesonException):
     pass
@@ -307,6 +309,34 @@ class Conf:
         tarr = self.get_testing_options()
         self.print_aligned(tarr)
 
+    def dump_conf(self, outfilename):
+        options = {
+                    'core': self.get_core_options(),
+                    'backend': self.get_backend_options(),
+                    'base': self.get_base_options(),
+                    'compiler_args': self.get_compiler_args(),
+                    'linker_args': self.get_linker_args(),
+                    'compiler_options': self.get_compiler_options(),
+                    'directories': self.get_directories_options(),
+                    'project': self.get_base_options(),
+                    'testing': self.get_testing_options(),
+                  }
+        if outfilename:
+            outfile = open(outfilename, 'w')
+        else:
+            outfile = sys.stdout
+        for group in options:
+            for option in options[group]:
+                #TODO
+                # if option['value'] == option['default']:
+                #   continue
+                optname = option['name']
+                optvalue = option['value']
+                if isinstance(optvalue, list):
+                    optvalue = ' '.join(optvalue)
+                outfile.write('-D{}="{}" '.format(optname, optvalue))
+        outfile.close()
+
 def run(args):
     args = mesonlib.expand_arguments(args)
     if not args:
@@ -329,10 +359,12 @@ def run(args):
         elif options.clearcache:
             c.clear_cache()
             save = True
-        else:
-            c.print_conf()
         if save:
             c.save()
+        if options.dump is not False:
+            c.dump_conf(options.dump)
+        elif not save:
+            c.print_conf()
     except ConfException as e:
         print('Meson configurator encountered an error:\n')
         print(e)
