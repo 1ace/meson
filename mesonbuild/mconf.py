@@ -26,6 +26,8 @@ parser.add_argument('--clearcache', action='store_true', default=False,
                     help='Clear cached state (e.g. found dependencies)')
 parser.add_argument('--dump', action='store', nargs='?', default=False,
                     help='Dump current configuration (optional: filename to write it in)')
+parser.add_argument('--tui', action='store_true', default=False,
+                    help='Open TUI configuration menu')
 
 class ConfException(mesonlib.MesonException):
     pass
@@ -122,6 +124,9 @@ class Conf:
             if '=' not in o:
                 raise ConfException('Value "%s" not of type "a=b".' % o)
             (k, v) = o.split('=', 1)
+            self.set_option(k, v)
+
+    def set_option(self, k, v):
             if coredata.is_builtin_option(k):
                 self.coredata.set_builtin_option(k, v)
             elif k in self.coredata.backend_options:
@@ -337,6 +342,128 @@ class Conf:
                 outfile.write('-D{}="{}" '.format(optname, optvalue))
         outfile.close()
 
+    def show_tui(self):
+        import curses
+
+        legend = {
+                '↓/↑/j/k': 'select option',
+                'pgup/pgdown': 'scroll description',
+                'enter': 'edit/save option',
+                #'delete': 'reset option to default value', #TODO: figure out how to get the default value
+                'q': 'quit'
+                }
+        details_minheight = 0
+        legend_height = 0
+        list_maxheight = 0
+
+        def tui_draw_legend(win_legend):
+            win_legend.clear()
+            line = 0
+            for key in legend:
+                win_legend.addstr(line,0, '[' + key + '] ' + legend[key]);
+                line+=1
+            win_legend.refresh()
+
+        def tui_draw_details(pad_details, option):
+            #TODO
+            # - option name (type, default, choices)
+            # - option description (min 2 lines, expand if needed)
+            #pad_details.refresh()
+            return
+
+        def tui_draw_options(pad_options, option_index, options_maxheight):
+            #TODO
+            # - groups (same as `meson configure`)
+            # - each line has option & current value
+            #pad_options.refresh()
+            return
+
+        def tui_set_option(name, value, win_error):
+            from .mesonlib import MesonException
+            try:
+                self.set_option(name, value)
+            except MesonException as e:
+                tui_error(win_error, str(e))
+                pass
+
+        def tui_error(win_error, msg):
+            win_error.clear()
+            win_error.addstr(0,0, msg)
+            win_error.refresh()
+
+        def tui(stdscr):
+            stdscr.clear()
+
+            details_minheight = 3
+            legend_height = len(legend)
+            options_maxheight = curses.LINES - legend_height - details_minheight
+
+            options = [{'name': 'prefix', 'value': 'FANCYPREFIX', 'default': 'NORMALPREFIX', 'descr': 'prefix option description'}]
+            _ptions = {
+                        'core': self.get_core_options(),
+                        'backend': self.get_backend_options(),
+                        'base': self.get_base_options(),
+                        #'compiler_args': self.get_compiler_args(),
+                        #'linker_args': self.get_linker_args(),
+                        'compiler_options': self.get_compiler_options(),
+                        'directories': self.get_directories_options(),
+                        'project': self.get_base_options(),
+                        'testing': self.get_testing_options(),
+                      }
+            option_index = 0
+
+            pad_options = curses.newpad(len(options), curses.COLS)
+            pad_details = curses.newpad(3, curses.COLS)
+            win_legend  = curses.newwin(legend_height, curses.COLS, curses.LINES-legend_height-1, 0)
+            win_error   = curses.newwin(1, curses.COLS, curses.LINES-1, 0)
+
+            min_width = 30
+            min_height = legend_height + details_minheight + 1
+
+            pad_options.refresh(0,0, 0,0, len(options),curses.COLS-1)
+            pad_details.refresh(0,0, 0,0, details_minheight,curses.COLS-1)
+            tui_draw_legend(win_legend)
+
+            tui_draw_details(pad_details, options[option_index])
+
+            while True:
+                key = stdscr.getkey()
+
+                if key is 'q':
+                    self.save()
+                    return
+
+                if key in ('KEY_RESIZE'):
+                    options_maxheight = curses.LINES - legend_height - details_minheight
+                    tui_draw_options(pad_options, option_index, options_maxheight)
+                    tui_error(win_error, 'new size: {}x{}'.format(options_maxheight,curses.COLS))
+
+                if options_maxheight < min_height or curses.COLS < min_width:
+                    tui_error(win_error, 'Please resize screen to at least {}x{}'.format(min_height, min_width))
+                    continue
+
+                if key in ('\n'):
+                    tui_error(win_error, 'enter')
+                elif key in ('KEY_DOWN', 'KEY_UP', 'j', 'k'):
+                    tui_error(win_error, 'arrow key: {}'.format(key))
+                    #TODO
+                    # option_index +/- 1
+                    # while index < pad_options.top:
+                    #   pad_options.scroll(1)
+                    # while index > pad_options.bottom:
+                    #   pad_options.scroll(-1)
+                elif key in (' ', 'KEY_NPAGE', 'KEY_PPAGE'):
+                    tui_error(win_error, 'page up/down')
+                elif key in ('KEY_DC'):
+                        tui_set_option(options[option_index]['name'],
+                                       options[option_index]['default'],
+                                       win_error)
+                elif key not in ('KEY_RESIZE', 'q'):
+                    tui_error(win_error, 'unbound key: {}'.format(key))
+
+        curses.wrapper(tui)
+
+
 def run(args):
     args = mesonlib.expand_arguments(args)
     if not args:
@@ -363,6 +490,8 @@ def run(args):
             c.save()
         if options.dump is not False:
             c.dump_conf(options.dump)
+        elif options.tui:
+            c.show_tui()
         elif not save:
             c.print_conf()
     except ConfException as e:
