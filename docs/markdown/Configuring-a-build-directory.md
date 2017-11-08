@@ -10,7 +10,7 @@ into a release build, set custom compiler flags, change the build
 options provided in your `meson_options.txt` file and so on.
 
 The main tool for this is the `meson configure` command. You may also use the
-`mesongui` graphical application if you want. However this document
+`meson configure --tui` text user-interface if you want. However this document
 describes the use of the command line client.
 
 You invoke `meson configure` by giving it the location of your build dir. If
