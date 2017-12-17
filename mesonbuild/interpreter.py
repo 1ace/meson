@@ -1655,23 +1655,31 @@ class MesonMain(InterpreterObject):
         # Prefer scripts in the current source directory
         search_dir = os.path.join(self.interpreter.environment.source_dir,
                                   self.interpreter.subdir)
-        key = (name, search_dir)
-        if key in self._found_source_scripts:
-            found = self._found_source_scripts[key]
+        if isinstance(name, mesonlib.File):
+            srcdir = self.interpreter.environment.source_dir
+            builddir = self.interpreter.environment.build_dir
+            found_cmd = [name.absolute_path(srcdir, builddir)]
         else:
-            found = dependencies.ExternalProgram(name, search_dir=search_dir)
-            if found.found():
-                self._found_source_scripts[key] = found
+            key = (name, search_dir)
+            if key in self._found_source_scripts:
+                found = self._found_source_scripts[key]
             else:
-                m = 'Script or command {!r} not found or not executable'
-                raise InterpreterException(m.format(name))
-        return build.RunScript(found.get_command(), args)
+                found = dependencies.ExternalProgram(name, search_dir=search_dir)
+                if found.found():
+                    self._found_source_scripts[key] = found
+                else:
+                    m = 'Script or command {!r} not found or not executable'
+                    raise InterpreterException(m.format(name))
+            found_cmd = found.get_command()
+        return build.RunScript(found_cmd, args)
 
     @permittedKwargs({})
     def add_install_script_method(self, args, kwargs):
         if len(args) < 1:
             raise InterpreterException('add_install_script takes one or more arguments')
-        check_stringlist(args, 'add_install_script args must be strings')
+        if not isinstance(args[0], mesonlib.File):
+            check_stringlist([args[0]], 'add_install_script first argument must be a string or a file()')
+        check_stringlist(args[1:], 'add_install_script args must be strings')
         script = self._find_source_script(args[0], args[1:])
         self.build.install_scripts.append(script)
 
@@ -1679,7 +1687,9 @@ class MesonMain(InterpreterObject):
     def add_postconf_script_method(self, args, kwargs):
         if len(args) < 1:
             raise InterpreterException('add_postconf_script takes one or more arguments')
-        check_stringlist(args, 'add_postconf_script arguments must be strings')
+        if not isinstance(args[0], mesonlib.File):
+            check_stringlist([args[0]], 'add_postconf_script first argument must be a string or a file()')
+        check_stringlist(args[1:], 'add_postconf_script arguments must be strings')
         script = self._find_source_script(args[0], args[1:])
         self.build.postconf_scripts.append(script)
 

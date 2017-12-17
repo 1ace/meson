@@ -238,6 +238,10 @@ class File:
     def from_absolute_file(fname):
         return File(False, '', fname)
 
+    @staticmethod
+    def to_string_array(file_array, srcdir, builddir):
+        return [f.absolute_path(srcdir, builddir) for f in file_array]
+
     @lru_cache(maxsize=None)
     def rel_to_builddir(self, build_to_src):
         if self.is_built:
